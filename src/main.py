@@ -1,38 +1,40 @@
 import sys
+from dotenv import load_dotenv
 import logging
 import numpy as np
 from ib_insync import *
 import time
 import threading
 
-# Add the tbot-tradingboat directory to the Python path
-sys.path.append('/home/tbot/develop/github/tbot-tradingboat/src')
+# Load environment variables from .env file
+load_dotenv()
 
-from tbot_tradingboat.utils.tbot_env import shared
+# Access environment variables
+ibkr_addr = os.getenv("IBKR_ADDR", "localhost")
+ibkr_port = int(os.getenv("IBKR_PORT", 4002))
+ibkr_clientid = int(os.getenv("TBOT_IBKR_CLIENTID", 2))
 
-# Configure logging to inherit TBOT's configuration
-logging.basicConfig(level=shared.loglevel, format='%(asctime)s - %(levelname)s - %(message)s')
+# Configure logging
+logging.basicConfig(level=os.getenv("TBOT_LOGLEVEL", "INFO"), format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # Connect to Interactive Brokers
 ib = IB()
 
-# Initialize global variables
-initial_net_liq = None
-positions_closed = False  # To prevent multiple order placements
-positions_closed_lock = threading.Lock()  # Ensure thread safety
-TEST_MODE = 1  # Toggle for test mode, set to 1 to enable, 0 to disable
+# Global variables
+positions_closed = False
+positions_closed_lock = threading.Lock()
 
 def connect_to_ib(max_retries=5, delay=10):
     retries = 0
     while retries < max_retries:
         try:
-            ib.connect(shared.ibkr_addr, int(shared.ibkr_port), clientId=2)  # Fixed clientId
-            logger.info("From Close-All: Connected to IBKR successfully.")
+            ib.connect(ibkr_addr, ibkr_port, clientId=ibkr_clientid)  # Use clientId from .env
+            logger.info("Connected to IBKR successfully.")
             return True
         except Exception as e:
             retries += 1
-            logger.error(f"From Close-All: Failed to connect to IBKR. Attempt {retries}/{max_retries}: {e}")
+            logger.error(f"Failed to connect to IBKR. Attempt {retries}/{max_retries}: {e}")
             time.sleep(delay)
     sys.exit(1)
 
