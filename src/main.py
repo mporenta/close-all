@@ -1,4 +1,5 @@
 import sys
+import socket
 from dotenv import load_dotenv
 import logging
 import numpy as np
@@ -25,17 +26,34 @@ ib = IB()
 positions_closed = False
 positions_closed_lock = threading.Lock()
 
-def connect_to_ib(max_retries=5, delay=10):
+def is_port_open(host, port, timeout=1):
+    """Check if the specified port is open."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(timeout)
+        try:
+            sock.connect((host, port))
+            return True
+        except socket.error:
+            return False
+
+def connect_to_ib(max_retries=10, delay=10):
     retries = 0
     while retries < max_retries:
-        try:
-            ib.connect(ibkr_addr, ibkr_port, clientId=ibkr_clientid)  # Use clientId from .env
-            logger.info("Connected to IBKR successfully.")
-            return True
-        except Exception as e:
+        if is_port_open(shared.ibkr_addr, int(shared.ibkr_port)):
+            try:
+                ib.connect(shared.ibkr_addr, int(shared.ibkr_port), clientId=2)  # Fixed clientId
+                logger.info("From Close-All: Connected to IBKR successfully.")
+                return True
+            except Exception as e:
+                retries += 1
+                logger.error(f"From Close-All: Failed to connect to IBKR. Attempt {retries}/{max_retries}: {e}")
+                time.sleep(delay)
+        else:
+            logger.error(f"From Close-All: Port {shared.ibkr_port} on {shared.ibkr_addr} is not open. Retrying...")
             retries += 1
-            logger.error(f"Failed to connect to IBKR. Attempt {retries}/{max_retries}: {e}")
             time.sleep(delay)
+
+    logger.error("From Close-All: Failed to connect to IBKR after multiple attempts. Exiting...")
     sys.exit(1)
 
 def set_initial_net_liq():
