@@ -1,5 +1,6 @@
 import sys
 import socket
+import dotenv
 from dotenv import load_dotenv
 import logging
 import numpy as np
