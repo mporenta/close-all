@@ -1,6 +1,8 @@
+# requirements.txt
+
 ib_async==1.0.3
 ib_insync==0.9.86
 numpy==2.1.0
 pandas==2.2.2
-PyQt5==5.15.11
-PyQt5_sip==12.15.0
+
+# Poetry installation handled in Dockerfile
