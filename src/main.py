@@ -1,17 +1,29 @@
 import sys
 import logging
 import numpy as np
-from ib_insync import *
+import ib_insync
+from ib_insync  import *
 import time
 import threading
 
 # Hardcoded IBKR configuration
 ibkr_addr = "localhost"
 ibkr_port = 4002
-ibkr_clientid = 2
+ibkr_clientid = 1
 
-# Configure logging
-logging.basicConfig(level="INFO", format='%(asctime)s - %(levelname)s - %(message)s')
+# Define TEST_MODE
+TEST_MODE = 1  # Set to 1 to enable NVDA test logic, 0 to disable
+
+# Configure logging to a hardcoded file path
+logging.basicConfig(
+    level="INFO", 
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        # logging.FileHandler("/home/close_all_log.txt"),
+        logging.FileHandler("close_all_log.txt"),
+        logging.StreamHandler(sys.stdout)  # Also log to stdout
+    ]
+)
 logger = logging.getLogger(__name__)
 
 # Connect to Interactive Brokers
@@ -78,50 +90,109 @@ def close_all_positions():
         logger.info("From Close-All: All positions have been closed.")
 
 def close_nvda_position_with_test_logic():
-    # Test logic for NVDA ticker
-    positions = ib.positions()
-    for position in positions:
-        if position.contract.symbol == "NVDA":
-            logger.info("From Test: NVDA position detected, executing test closure.")
-            contract = position.contract
-            quantity = position.position
+    logger.info("From Test: Starting test logic for NVDA position closure.")
 
-            # Fetch the last price for NVDA
-            ticker = ib.reqMktData(contract, '', False, False)
+    # Fetch all positions
+    positions = ib.positions()
+    logger.info(f"From Test: Retrieved positions: {positions}")
+
+    for position in positions:
+        logger.info(f"From Test: Evaluating position: {position.contract.symbol}")
+
+        # Check if the position is NVDA
+        if position.contract.symbol == "NVDA":
+            logger.info("From Test: NVDA position detected, proceeding with closure logic.")
+
+            # Create a simplified contract using only the conId
+            contract_with_only_id = Contract(conId=position.contract.conId)
+            logger.info(f"From Test: Created contract with only conId: {contract_with_only_id}")
+
+            # Qualify the simplified contract
+            ib.qualifyContracts(contract_with_only_id)
+            logger.info(f"From Test: Qualified contract: {contract_with_only_id}")
+
+            # Fetch the market data for NVDA
+            ticker = ib.reqMktData(contract_with_only_id, '', False, False)
             ib.sleep(1)  # Allow time for price to be fetched
-            while ticker.last is None:  # Wait until we get the last price
+            logger.info("From Test: Requesting market data for NVDA.")
+
+            # Wait until we get a valid last price, with a timeout
+            timeout = 10
+            start_time = time.time()
+            while ticker.last is None and (time.time() - start_time) < timeout:
+                logger.info("From Test: Waiting for valid last price for NVDA...")
                 ib.sleep(0.5)
+
+            # Check if we successfully got a last price, otherwise try midpoint
             last_price = ticker.last
+            if not last_price or last_price != last_price:  # Detect NaN or None
+                last_price = ticker.midpoint()
+                logger.info(f"From Test: No valid last price available, using midpoint: {last_price}")
+
+            # If still no valid price, fall back to historical data
+            if not last_price or last_price != last_price:
+                logger.warning("From Test: Could not retrieve a valid last price or midpoint. Fetching historical data.")
+                bars = ib.reqHistoricalData(
+                    contract_with_only_id, endDateTime='', durationStr='1 D',
+                    barSizeSetting='1 min', whatToShow='ADJUSTED_LAST', useRTH=True
+                )
+                
+                if bars:
+                    last_price = bars[-1].close  # Use the last closing price from historical data
+                    logger.info(f"From Test: Historical data fallback used, last price from historical data: {last_price}")
+                else:
+                    logger.error("From Test: Failed to retrieve historical data. Aborting.")
+                    return
+
+            logger.info(f"From Test: Last price for NVDA retrieved: {last_price}")
 
             # Ensure tick size is defined, else use a default value
-            tick_size = contract.minTick or 0.01  # Default tick size if not provided
-            if quantity > 0:
+            tick_size = 0.01  # Default tick size as 'minTick' attribute isn't available
+            logger.info(f"From Test: Using tick size: {tick_size}")
+
+            if position.position > 0:
                 # Long position, place sell limit order 2 ticks below last price
                 limit_price = last_price - 2 * tick_size
-                order = LimitOrder('SELL', quantity, limit_price)
+                logger.info(f"From Test: Long position detected. Calculated sell limit price: {limit_price}")
+                order = LimitOrder('SELL', position.position, limit_price)
+                logger.info(f"From Test: Created sell limit order for {position.position} shares at {limit_price}")
             else:
                 # Short position, place buy to cover limit order 2 ticks above last price
                 limit_price = last_price + 2 * tick_size
-                order = LimitOrder('BUY', -quantity, limit_price)
+                logger.info(f"From Test: Short position detected. Calculated buy limit price: {limit_price}")
+                order = LimitOrder('BUY', -position.position, limit_price)
+                logger.info(f"From Test: Created buy limit order for {-position.position} shares at {limit_price}")
+
+            # Check for NaN in limit price
+            if limit_price is None or limit_price != limit_price:  # Detects NaN
+                logger.error("From Test: Limit price is invalid (NaN). Aborting.")
+                return
 
             # Place the limit order
             try:
-                trade = ib.placeOrder(contract, order)
-                logger.info(f"From Test: Placed limit order for NVDA, Quantity: {quantity}, Limit Price: {limit_price}")
+                trade = ib.placeOrder(contract_with_only_id, order)
+                logger.info(f"From Test: Placed limit order for NVDA, Quantity: {position.position}, Limit Price: {limit_price}")
                 ib.sleep(10)  # Wait for 10 seconds to see if the order fills
+                
                 if trade.orderStatus.status == 'Filled':
                     logger.info("From Test: NVDA limit order filled.")
                 else:
                     logger.info("From Test: NVDA limit order not filled, sending market order.")
+                    
                     # Send a market order to close the position
-                    if quantity > 0:
-                        market_order = MarketOrder('SELL', quantity)
+                    if position.position > 0:
+                        market_order = MarketOrder('SELL', position.position)
+                        logger.info(f"From Test: Created market order to SELL {position.position} shares.")
                     else:
-                        market_order = MarketOrder('BUY', -quantity)
-                    ib.placeOrder(contract, market_order)
+                        market_order = MarketOrder('BUY', -position.position)
+                        logger.info(f"From Test: Created market order to BUY {-position.position} shares.")
+                    
+                    ib.placeOrder(contract_with_only_id, market_order)
                     logger.info("From Test: NVDA market order placed to close position.")
             except Exception as e:
                 logger.error(f"From Test: Error executing NVDA order: {e}")
+
+
 
 # Triggered on order execution or trade events
 def update_data_and_evaluate_risk():
