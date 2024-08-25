@@ -41,9 +41,9 @@ def is_port_open(host, port, timeout=1):
 def connect_to_ib(max_retries=10, delay=10):
     retries = 0
     while retries < max_retries:
-        if is_port_open(shared.ibkr_addr, int(shared.ibkr_port)):
+        if is_port_open(ibkr_addr, ibkr_port):
             try:
-                ib.connect(shared.ibkr_addr, int(shared.ibkr_port), clientId=2)  # Fixed clientId
+                ib.connect(ibkr_addr, ibkr_port, clientId=ibkr_clientid)
                 logger.info("From Close-All: Connected to IBKR successfully.")
                 return True
             except Exception as e:
@@ -51,7 +51,7 @@ def connect_to_ib(max_retries=10, delay=10):
                 logger.error(f"From Close-All: Failed to connect to IBKR. Attempt {retries}/{max_retries}: {e}")
                 time.sleep(delay)
         else:
-            logger.error(f"From Close-All: Port {shared.ibkr_port} on {shared.ibkr_addr} is not open. Retrying...")
+            logger.error(f"From Close-All: Port {ibkr_port} on {ibkr_addr} is not open. Retrying...")
             retries += 1
             time.sleep(delay)
 
@@ -61,7 +61,7 @@ def connect_to_ib(max_retries=10, delay=10):
 def set_initial_net_liq():
     global initial_net_liq
     try:
-        account_summary = ib.accountSummary(shared.ibkr_account)
+        account_summary = ib.accountSummary()
         initial_net_liq = float([item for item in account_summary if item.tag == 'NetLiquidation'][0].value)
         logger.info(f"From Close-All: Initial Net Liquidation Value set to {initial_net_liq}")
     except Exception as e:
@@ -148,9 +148,9 @@ def close_nvda_position_with_test_logic():
 # Triggered on order execution or trade events
 def update_data_and_evaluate_risk():
     try:
-        account_values = ib.accountValues(shared.ibkr_account)
-        portfolio = ib.portfolio(shared.ibkr_account)
-        positions = ib.positions(shared.ibkr_account)
+        account_values = ib.accountValues()
+        portfolio = ib.portfolio()
+        positions = ib.positions()
         trades = ib.trades()
         executions = ib.executions()
 
