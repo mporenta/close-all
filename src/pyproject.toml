@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "close-all"
+version = "1"
+description = ""
+authors = ["mporenta <mike.porenta@gmail.com>"]
+license = "GNU"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+ib_async = "1.0.3"
+ib_insync = "0.9.86"
+numpy = "2.1.0"
+pandas = "2.2.2"
+
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
