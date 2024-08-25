@@ -1,8 +1,7 @@
 import sys
 import logging
 import numpy as np
-import ib_async
-from ib_async  import *
+from ib_insync import *
 import time
 import threading
 
