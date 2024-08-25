@@ -9,7 +9,7 @@ import threading
 # Hardcoded IBKR configuration
 ibkr_addr = "localhost"
 ibkr_port = 4002
-ibkr_clientid = 1
+ibkr_clientid = 270
 
 # Define TEST_MODE
 TEST_MODE = 1  # Set to 1 to enable NVDA test logic, 0 to disable
