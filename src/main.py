@@ -10,8 +10,18 @@ ibkr_addr = "localhost"
 ibkr_port = 4002
 ibkr_clientid = 2
 
-# Configure logging
-logging.basicConfig(level="INFO", format='%(asctime)s - %(levelname)s - %(message)s')
+# Define TEST_MODE
+TEST_MODE = 0  # Set to 1 to enable NVDA test logic, 0 to disable
+
+# Configure logging to a hardcoded file path
+logging.basicConfig(
+    level="INFO", 
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("/home/close_all_log.txt"),
+        logging.StreamHandler(sys.stdout)  # Also log to stdout
+    ]
+)
 logger = logging.getLogger(__name__)
 
 # Connect to Interactive Brokers
