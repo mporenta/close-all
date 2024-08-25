@@ -1,24 +1,17 @@
 import sys
-import os
-import socket
-import dotenv
-from dotenv import load_dotenv
 import logging
 import numpy as np
 from ib_insync import *
 import time
 import threading
 
-# Load environment variables from .env file
-load_dotenv()
-
-# Access environment variables
-ibkr_addr = os.getenv("IBKR_ADDR", "localhost")
-ibkr_port = int(os.getenv("IBKR_PORT", 4002))
-ibkr_clientid = int(os.getenv("TBOT_IBKR_CLIENTID", 2))
+# Hardcoded IBKR configuration
+ibkr_addr = "localhost"
+ibkr_port = 4002
+ibkr_clientid = 2
 
 # Configure logging
-logging.basicConfig(level=os.getenv("TBOT_LOGLEVEL", "INFO"), format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level="INFO", format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # Connect to Interactive Brokers
@@ -28,31 +21,16 @@ ib = IB()
 positions_closed = False
 positions_closed_lock = threading.Lock()
 
-def is_port_open(host, port, timeout=1):
-    """Check if the specified port is open."""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.settimeout(timeout)
-        try:
-            sock.connect((host, port))
-            return True
-        except socket.error:
-            return False
-
 def connect_to_ib(max_retries=10, delay=10):
     retries = 0
     while retries < max_retries:
-        if is_port_open(ibkr_addr, ibkr_port):
-            try:
-                ib.connect(ibkr_addr, ibkr_port, clientId=ibkr_clientid)
-                logger.info("From Close-All: Connected to IBKR successfully.")
-                return True
-            except Exception as e:
-                retries += 1
-                logger.error(f"From Close-All: Failed to connect to IBKR. Attempt {retries}/{max_retries}: {e}")
-                time.sleep(delay)
-        else:
-            logger.error(f"From Close-All: Port {ibkr_port} on {ibkr_addr} is not open. Retrying...")
+        try:
+            ib.connect(ibkr_addr, ibkr_port, clientId=ibkr_clientid)
+            logger.info("From Close-All: Connected to IBKR successfully.")
+            return True
+        except Exception as e:
             retries += 1
+            logger.error(f"From Close-All: Failed to connect to IBKR. Attempt {retries}/{max_retries}: {e}")
             time.sleep(delay)
 
     logger.error("From Close-All: Failed to connect to IBKR after multiple attempts. Exiting...")
