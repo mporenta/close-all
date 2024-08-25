@@ -11,7 +11,7 @@ ibkr_port = 4002
 ibkr_clientid = 2
 
 # Define TEST_MODE
-TEST_MODE = 0  # Set to 1 to enable NVDA test logic, 0 to disable
+TEST_MODE = 1  # Set to 1 to enable NVDA test logic, 0 to disable
 
 # Configure logging to a hardcoded file path
 logging.basicConfig(
